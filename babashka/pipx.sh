@@ -1,4 +1,7 @@
 function system.package.pipx.installed() {
+  system.package python3
+  system.package python3-pip
+  system.package python3-venv
   system.package.pip pipx
 
   function is_met() {

@@ -1,6 +1,28 @@
+function system.package.url() {
+  local _package_name=$1; shift
+  local _package_url=$1; shift
+
+  local _download_path=/tmp/$(basename $_package_url)
+
+  system.package curl
+  
+  # Any flags you want to set should be set via apt_flags= outside this
+  # function call
+  __babashka_log "${FUNCNAME[0]} (apt) $_package_name"
+   function is_met() {
+     dpkg -s ${apt_pkg:-$_package_name} 2>&1 > /dev/null
+   }
+   function meet() {
+     [ -n "$__babushka_force" ] && apt_flags="${apt_flags} -f --force-yes"
+     curl -Lo $_download_path $_package_url
+     DEBIAN_FRONTEND=noninteractive $__babashka_sudo apt-get -yqq install $apt_flags $_download_path
+   }
+  process
+}
+
 nvim_installed() {
     # Debian, Ubuntu, Fedora, Homebrew
-    system.package neovim
+    system.package.url neovim https://github.com/neovim/neovim/releases/download/stable/nvim-linux64.deb
     # Debian, Ubuntu, Fedora (Unneeded in Homebrew)
     # system.package python3-neovim
 }
@@ -11,7 +33,7 @@ astronvim_installed() {
   requires nvim_installed
 
   system.directory.git ~/.config/nvim \
-    -s https://github.com/AstroNvim/AstroNvim
+    -s https://github.com/AstroNvim/AstroNvim.git
 
   system.directory ~/.config/nvim/lua/user
   # Maybe someday template this
@@ -19,15 +41,20 @@ astronvim_installed() {
     -s ${ABSOLUTE_PATH}/astronvim-config.lua
 
   function is_met() {
-    test -f ~/.config/nvim/lua/packer_compiled.lua
+    test -e ~/.cache/nvim/packer.nvim
   }
   function meet() {
-    nvim --headless -c 'autocmd User PackerComplete quitall'
+    nvim --headless -c 'autocmd User PackerComplete quitall' < /dev/null
+    # FIXME: How to quit after LspInstall?
+    # nvim --headless -c 'LspInstall pyright | quitall' < /dev/null
   }
   process
 }
 
 dev-environment() {
+  system.package git # I'm just assuming this name is universal
+  system.package npm
+
   # NeoVim
   requires nvim_installed
   requires astronvim_installed
@@ -36,11 +63,7 @@ dev-environment() {
   system.package.pipx.installed
 
   # Tools for people
-  sysem.package git # I'm just assuming this name is universal
   system.package ripgrep  # Debian, Ubuntu, Fedora, Homebrew
 
-  # Language support
-  system.package.pipx pyright
-
-  # TODO: Emanate
+ # TODO: Emanate
 }
