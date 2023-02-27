@@ -4,6 +4,7 @@ import click
 
 from .compose import find_compose, guess_annotations, nvim_annotations, nvim_name
 from .docker import find_networks, start_nvim
+from .nvim import start_neovide
 
 #: The container image to use for nvim
 NVIM_CONTAINER = 'ghcr.io/astraluma/unholy:trunk'
@@ -29,10 +30,18 @@ def workon():
     print(f"{nv_annos}")
     nv_name = nvim_name(cpath)
     print(f"{nv_name=}")
-    start_nvim(
+    nv = start_nvim(
         name=nv_name,
         image=NVIM_CONTAINER,
         labels=nv_annos,
         nets=list(find_networks(proj_annos)),
         src_dir=Path.cwd().absolute()
     )
+    start_neovide(nv.port)
+
+
+@main.command()
+def shell():
+    """
+    Start a shell
+    """

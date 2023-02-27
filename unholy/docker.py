@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+import signal
 import urllib.parse
 
 import docker
@@ -61,6 +62,18 @@ def start_nvim(
     * docker_socket: The socket path for docker
     """
     # TODO: re-use existing containers
+    try:
+        oldc = client.containers.get(name)
+    except docker.errors.NotFound:
+        pass
+    else:
+        print("Killing old container...")
+        oldc.stop()
+        try:
+            # Will probably error because auto_remove
+            oldc.remove()
+        except docker.errors.NotFound:
+            pass
     port = pick_port()
     print(f"{port=}")
     print("Pulling...")
