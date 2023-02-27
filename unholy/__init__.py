@@ -6,7 +6,7 @@ from .compose import find_compose, guess_annotations, nvim_annotations, nvim_nam
 from .docker import find_networks, start_nvim
 
 #: The container image to use for nvim
-NVIM_CONTAINER = 'ghcr.io/astraluma/nvim-compose:trunk'
+NVIM_CONTAINER = 'ghcr.io/astraluma/unholy:trunk'
 
 
 @click.group()
