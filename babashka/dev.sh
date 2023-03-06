@@ -56,7 +56,7 @@ just_installed() {
      test -e /usr/local/bin/just
    }
    function meet() {
-     curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to ~/bin
+     curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
    }
   process
 }
