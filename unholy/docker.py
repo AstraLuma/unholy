@@ -72,12 +72,13 @@ def start_nvim(
         try:
             # Will probably error because auto_remove
             oldc.remove()
-        except docker.errors.NotFound:
+        except (docker.errors.NotFound, docker.errors.APIError):
             pass
     port = pick_port()
     print(f"{port=}")
     print("Pulling...")
     img = client.images.pull(image)
+    print(f"{img.tags=}")
     mounts = []
     if src_dir:
         mounts.append(docker.types.Mount(
@@ -89,7 +90,7 @@ def start_nvim(
     assert nets
     first_net, *rest_nets = nets
     c = client.containers.create(
-        image=img,
+        image=img.tags[0] if img.tags else img.id,  # Using the tag is nicer for docker ps/etc
         command=['nvim', '--headless', '--listen', f'0.0.0.0:{port}'],
         auto_remove=True,  # FIXME: Attempt to re-use instead
         detach=True,
