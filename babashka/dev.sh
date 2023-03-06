@@ -51,6 +51,16 @@ astronvim_installed() {
   process
 }
 
+just_installed() {
+   function is_met() {
+     test -e /usr/local/bin/just
+   }
+   function meet() {
+     curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to ~/bin
+   }
+  process
+}
+
 dev-environment() {
   system.package git # I'm just assuming this name is universal
   system.package npm
@@ -64,6 +74,8 @@ dev-environment() {
 
   # Tools for people
   system.package ripgrep  # Debian, Ubuntu, Fedora, Homebrew
+  
+  requires just_installed
 
  # TODO: Emanate
 }
