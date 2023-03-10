@@ -2,6 +2,7 @@
 Utilities for working with docker compose.
 """
 from pathlib import Path
+import subprocess
 
 
 def find_compose() -> Path:
@@ -51,3 +52,13 @@ def nvim_name(compose: Path) -> str:
     annos = nvim_annotations(compose)
     base = annos['com.docker.compose.project']
     return f"{base}-nvim"
+
+
+def ensure_up(compose: Path) -> None:
+    """
+    Ensures the given compose cluster is up.
+    """
+    subprocess.run(
+        ['docker', 'compose', '--file', compose.absolute(), 'up', '--detach'],
+        check=True, stdin=subprocess.DEVNULL,
+    )

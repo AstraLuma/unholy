@@ -2,7 +2,9 @@ from pathlib import Path
 
 import click
 
-from .compose import find_compose, guess_annotations, nvim_annotations, nvim_name
+from .compose import (
+    find_compose, guess_annotations, nvim_annotations, nvim_name, ensure_up,
+)
 from .docker import find_networks, start_nvim
 from .nvim import start_neovide
 
@@ -24,6 +26,7 @@ def workon():
     """
     cpath = find_compose()
     print(f"{cpath=}")
+    ensure_up(cpath)
     proj_annos = guess_annotations(cpath)
     print(f"{proj_annos=}")
     nv_annos = nvim_annotations(cpath)
