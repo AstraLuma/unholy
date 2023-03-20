@@ -14,7 +14,8 @@ def start_neovide(port: int):
     """
     Open Neovide, pointed at the neovim instanse at the given port.
     """
-    subprocess.Popen(
+    # Neovide detaches by default
+    subprocess.run(
         ['neovide', '--remote-tcp', f"127.0.0.1:{port}"],
-        stdin=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL, check=True,
     )
