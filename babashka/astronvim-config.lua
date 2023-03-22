@@ -165,7 +165,11 @@ return {
         disabled_plugins = { "tohtml", "gzip", "matchit", "zipPlugin", "netrwPlugin", "tarPlugin" },
       },
     },
-    { 'rose-pine/neovim', name = 'rose-pine' },
+    { 'rose-pine/neovim', name = 'rose-pine', opts = {
+        highlight_groups = {
+          NotifyBackground = { bg = 'gold' },
+        },
+    } },
     { 'weihanglo/polar.vim' },
     { 'ntpeters/vim-better-whitespace' },
     {"treesitter", opts = { -- overrides `require("treesitter").setup(...)`
