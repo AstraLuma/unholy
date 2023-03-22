@@ -186,6 +186,9 @@ return {
     {"mason-nvim-dap", opts = { -- overrides `require("mason-nvim-dap").setup(...)`
       -- ensure_installed = { "python" },
     }},
+    { "notify", opts = {
+        background_colour = '#000000',
+    }},
   },
   
   -- Customize Heirline options
