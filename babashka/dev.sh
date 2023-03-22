@@ -5,7 +5,7 @@ function system.package.url() {
   local _download_path=/tmp/$(basename $_package_url)
 
   system.package curl
-  
+
   # Any flags you want to set should be set via apt_flags= outside this
   # function call
   __babashka_log "${FUNCNAME[0]} (apt) $_package_name"
@@ -41,12 +41,10 @@ astronvim_installed() {
     -s ${ABSOLUTE_PATH}/astronvim-config.lua
 
   function is_met() {
-    test -e ~/.cache/nvim/packer.nvim
+    test -e ~/.local/state/nvim/lazy
   }
   function meet() {
-    nvim --headless -c 'autocmd User PackerComplete quitall' < /dev/null
-    # FIXME: How to quit after LspInstall?
-    # nvim --headless -c 'LspInstall pyright | quitall' < /dev/null
+    nvim --headless -c 'quitall' < /dev/null
   }
   process
 }
@@ -74,8 +72,9 @@ dev-environment() {
 
   # Tools for people
   system.package ripgrep  # Debian, Ubuntu, Fedora, Homebrew
+
   system.package fzf  # Debian, Homebrew
-  
+
   requires just_installed
 
  # TODO: Emanate
