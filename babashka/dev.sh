@@ -74,6 +74,7 @@ dev-environment() {
 
   # Tools for people
   system.package ripgrep  # Debian, Ubuntu, Fedora, Homebrew
+  system.package fzf  # Debian, Homebrew
   
   requires just_installed
 
