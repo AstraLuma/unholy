@@ -44,9 +44,7 @@ astronvim_installed() {
     test -e ~/.cache/nvim/packer.nvim
   }
   function meet() {
-    nvim --headless -c 'autocmd User PackerComplete quitall' < /dev/null
-    # FIXME: How to quit after LspInstall?
-    # nvim --headless -c 'LspInstall pyright | quitall' < /dev/null
+    nvim --headless -c 'quitall' < /dev/null
   }
   process
 }
