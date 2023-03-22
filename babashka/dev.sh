@@ -41,10 +41,10 @@ astronvim_installed() {
     -s ${ABSOLUTE_PATH}/astronvim-config.lua
 
   function is_met() {
-    test -e ~/.cache/nvim/packer.nvim
+    test -e ~/.local/state/nvim/lazy
   }
   function meet() {
-    nvim --headless -c 'quitall' < /dev/null
+    nvim --headless -c 'autocmd User LazyDone quitall' < /dev/null
   }
   process
 }
