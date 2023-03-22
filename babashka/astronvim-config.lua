@@ -4,7 +4,7 @@
 -- You can think of a Lua "table" as a dictionary like data structure the
 -- normal format is "key = value". These also handle array like data structures
 -- where a value with no key simply has an implicit numeric key
-local config = {
+return {
 
   -- Configure AstroNvim updates
   updater = {
@@ -70,13 +70,6 @@ local config = {
     "    ██   ████   ████   ██ ██      ██",
   },
 
-  -- Default theme configuration
-  default_theme = {
-    -- enable or disable highlighting for extra plugins
-    plugins = {
-    },
-  },
-
   -- Diagnostics configuration (for vim.diagnostics.config({...})) when diagnostics are on
   diagnostics = {
     virtual_text = true,
@@ -124,7 +117,7 @@ local config = {
     -- end,
 
     -- Add overrides for LSP server settings, the keys are the name of the server
-    ["server-settings"] = {
+    config = {
       -- example for addings schemas to yamlls
       -- yamlls = { -- override table for require("lspconfig").yamlls.setup({...})
       --   settings = {
@@ -150,6 +143,7 @@ local config = {
     n = {
       -- second key is the lefthand side of the map
       -- mappings seen under group name "Buffer"
+      ["<leader>b"] = { name = "Buffer" },
       ["<leader>bb"] = { "<cmd>tabnew<cr>", desc = "New tab" },
       ["<leader>bc"] = { "<cmd>BufferLinePickClose<cr>", desc = "Pick to close" },
       ["<leader>bj"] = { "<cmd>BufferLinePick<cr>", desc = "Pick to jump" },
@@ -163,91 +157,33 @@ local config = {
     },
   },
 
-  -- Configure plugins
-  plugins = {
-    init = {
-      -- You can disable default plugins as follows:
-      -- ["goolord/alpha-nvim"] = { disable = true },
-
-      -- You can also add new plugins here as well:
-      -- Add plugins, the packer syntax without the "use"
-      -- { "andweeb/presence.nvim" },
-      -- {
-      --   "ray-x/lsp_signature.nvim",
-      --   event = "BufRead",
-      --   config = function()
-      --     require("lsp_signature").setup()
-      --   end,
-      -- },
-
-      -- We also support a key value style plugin definition similar to NvChad:
-      -- ["ray-x/lsp_signature.nvim"] = {
-      --   event = "BufRead",
-      --   config = function()
-      --     require("lsp_signature").setup()
-      --   end,
-      -- },
-      { "rose-pine/neovim", as="rose-pine" },
+  lazy = {
+    defaults = { lazy = true },
+    performance = {
+      rtp = {
+        -- customize default disabled vim plugins
+        disabled_plugins = { "tohtml", "gzip", "matchit", "zipPlugin", "netrwPlugin", "tarPlugin" },
+      },
     },
-    -- All other entries override the require("<key>").setup({...}) call for default plugins
-    ["null-ls"] = function(config) -- overrides `require("null-ls").setup(config)`
-      -- config variable is the default configuration table for the setup function call
-      -- local null_ls = require "null-ls"
-
-      -- Check supported formatters and linters
-      -- https://github.com/jose-elias-alvarez/null-ls.nvim/tree/main/lua/null-ls/builtins/formatting
-      -- https://github.com/jose-elias-alvarez/null-ls.nvim/tree/main/lua/null-ls/builtins/diagnostics
-      config.sources = {
-        -- Set a formatter
-        -- null_ls.builtins.formatting.stylua,
-        -- null_ls.builtins.formatting.prettier,
-      }
-      return config -- return final config table
-    end,
-    treesitter = { -- overrides `require("treesitter").setup(...)`
+    { 'rose-pine/neovim', name = 'rose-pine' },
+    { 'weihanglo/polar.vim' },
+    { 'ntpeters/vim-better-whitespace' },
+    {"treesitter", opts = { -- overrides `require("treesitter").setup(...)`
       -- ensure_installed = { "lua" },
-    },
+    }},
     -- use mason-lspconfig to configure LSP installations
-    ["mason-lspconfig"] = { -- overrides `require("mason-lspconfig").setup(...)`
-      -- ensure_installed = { "sumneko_lua" },
-    },
+    {"mason-lspconfig", opts = {
+      ensure_installed = { "pyright", "puppet", "tsserver" },
+    }},
     -- use mason-null-ls to configure Formatters/Linter installation for null-ls sources
-    ["mason-null-ls"] = { -- overrides `require("mason-null-ls").setup(...)`
+    {"mason-null-ls", opts = { -- overrides `require("mason-null-ls").setup(...)`
       -- ensure_installed = { "prettier", "stylua" },
-    },
-    ["mason-nvim-dap"] = { -- overrides `require("mason-nvim-dap").setup(...)`
+    }},
+    {"mason-nvim-dap", opts = { -- overrides `require("mason-nvim-dap").setup(...)`
       -- ensure_installed = { "python" },
-    },
+    }},
   },
-
-  -- LuaSnip Options
-  luasnip = {
-    -- Extend filetypes
-    filetype_extend = {
-      -- javascript = { "javascriptreact" },
-    },
-    -- Configure luasnip loaders (vscode, lua, and/or snipmate)
-    vscode = {
-      -- Add paths for including more VS Code style snippets in luasnip
-      paths = {},
-    },
-  },
-
-  -- CMP Source Priorities
-  -- modify here the priorities of default cmp sources
-  -- higher value == higher priority
-  -- The value can also be set to a boolean for disabling default sources:
-  -- false == disabled
-  -- true == 1000
-  cmp = {
-    source_priority = {
-      nvim_lsp = 1000,
-      luasnip = 750,
-      buffer = 500,
-      path = 250,
-    },
-  },
-
+  
   -- Customize Heirline options
   heirline = {
     -- -- Customize different separators between sections
@@ -274,21 +210,6 @@ local config = {
     -- },
   },
 
-  -- Modify which-key registration (Use this with mappings table in the above.)
-  ["which-key"] = {
-    -- Add bindings which show up as group name
-    register = {
-      -- first key is the mode, n == normal mode
-      n = {
-        -- second key is the prefix, <leader> prefixes
-        ["<leader>"] = {
-          -- third key is the key to bring up next level and its displayed
-          -- group name in which-key top level menu
-          ["b"] = { name = "Buffer" },
-        },
-      },
-    },
-  },
 
   -- This function is run last and is a good place to configuring
   -- augroups/autocommands and custom filetypes also this just pure lua so
@@ -308,5 +229,3 @@ local config = {
     -- }
   end,
 }
-
-return config
