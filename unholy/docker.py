@@ -3,8 +3,11 @@ from pathlib import Path
 import signal
 import urllib.parse
 
+import click
 import docker
+import docker.models.images
 from docker.transport.unixconn import UnixHTTPAdapter
+import docker.utils
 from unholy.nvim import pick_port
 
 
@@ -34,6 +37,26 @@ def find_networks(annos: dict):
         labels = net.attrs['Labels']
         if any(labels.get(k, None) == v for k, v in annos.items()):
             yield net
+
+
+def smart_pull(image) ->docker.models.images.Image:
+    """
+    Pulls the given image with click progress.
+    """
+    repository, image_tag = docker.utils.parse_repository_tag(image)
+    tag = image_tag or 'latest'
+
+    with click.progressbar(
+        client.api.pull(repository, tag=tag, stream=True, decode=True),
+        label='Pulling',
+        item_show_func=lambda l: l.get('status', None) if l else None
+    ) as bar:
+        for line in bar:
+            # print(line)
+            if 'current' in line['progressDetail'] and 'total' in line['progressDetail']:
+                bar.update(line['progressDetail']['total'], line['progressDetail']['current'])
+
+    return client.images.get(f"{repository}{'@' if tag.startswith('sha256:') else ':'}{tag}")
 
 
 @dataclass
@@ -76,8 +99,7 @@ def start_nvim(
             pass
     port = pick_port()
     print(f"{port=}")
-    print("Pulling...")
-    img = client.images.pull(image)
+    img = smart_pull(image)
     print(f"{img.tags=}")
     mounts = []
     if src_dir:
