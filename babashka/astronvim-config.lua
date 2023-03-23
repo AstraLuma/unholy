@@ -18,7 +18,7 @@ return {
   },
 
   -- Set colorscheme to use
-  colorscheme = "rose-pine",
+  -- colorscheme = "rose-pine",
 
 
   -- set vim options here (vim.<first_key>.<second_key> = value)
@@ -54,16 +54,6 @@ return {
   --
   --   return local_vim
   -- end,
-
-  -- Set dashboard header
-  -- https://textkool.com/en/ascii-art-generator?hl=fitted&vl=default&font=ANSI%20Regular&text=unholy
-  header = {
-    "██    ██ ███    ██ ██   ██  ██████  ██   ██    ██",
-    "██    ██ ████   ██ ██   ██ ██    ██ ██    ██  ██",
-    "██    ██ ██ ██  ██ ███████ ██    ██ ██     ████",
-    "██    ██ ██  ██ ██ ██   ██ ██    ██ ██      ██", 
-    " ██████  ██   ████ ██   ██  ██████  ███████ ██",
-  },
 
   -- Diagnostics configuration (for vim.diagnostics.config({...})) when diagnostics are on
   diagnostics = {
