@@ -18,7 +18,7 @@ return {
   },
 
   -- Set colorscheme to use
-  -- colorscheme = "rose-pine",
+  colorscheme = "rose-pine",
 
 
   -- set vim options here (vim.<first_key>.<second_key> = value)
@@ -175,7 +175,7 @@ return {
         background_colour = '#000000',
     }},
   },
-  
+
   -- Customize Heirline options
   heirline = {
     -- -- Customize different separators between sections
