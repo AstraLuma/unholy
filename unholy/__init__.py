@@ -2,6 +2,8 @@ from pathlib import Path
 
 import click
 
+from .config import parse
+from .git import pull_file
 from .compose import (
     find_compose, guess_annotations, nvim_annotations, nvim_name, ensure_up,
 )
@@ -17,6 +19,18 @@ def main():
     """
     An amalgamation of docker compose and neovim
     """
+
+
+@main.command()
+@click.argument('repository')
+@click.option('--remote', '-o', help="Name of the remote (default: origin)")
+@click.option('--branch', '-b', help="Namoe of the branch (default: remote's HEAD)")
+def clone(repository, remote, branch):
+    """
+    Create a new project from a git repo
+    """
+    uf = pull_file(repository, 'Unholyfile', branch=branch)
+    config, project_script = parse(uf)
 
 
 @main.command()
