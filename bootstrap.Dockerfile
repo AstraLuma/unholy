@@ -1,4 +1,4 @@
 FROM alpine
-RUN apk install git docker
+RUN apk add git docker
 
 CMD ["sleep", "infinity"]
