@@ -1,0 +1,4 @@
+---
+[dev]
+image = "docker.io/library/debian:latest"
+---
