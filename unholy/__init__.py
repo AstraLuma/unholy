@@ -13,7 +13,7 @@ from .config import edit_config, get_config_stack, project_config_path
 from .docker import find_networks, start_nvim
 from .git import guess_project_from_url, pull_file
 from .nvim import start_neovide
-from .processes import do_clone
+from .processes import do_clone, run_compose
 
 
 #: The container image to use for nvim
@@ -55,12 +55,12 @@ def clone(name, repository, remote, branch):
     """
     Create a new project from a git repo
     """
+    name = name or guess_project_from_url(repository)
     if project_config_path(name).exists():
         click.confirm(
             "This project exists locally. Are you sure you want to overwrite it?",
             abort=True,
         )
-    name = name or guess_project_from_url(repository)
     uf = pull_file(repository, 'Unholyfile', branch=branch)
 
     # Write out the project information
@@ -72,17 +72,17 @@ def clone(name, repository, remote, branch):
 
     # Do initialization
     composer = UnholyCompose(name, config)
-    if composer.project_volume_get() is None:
-        composer.project_volume_create()
-    else:
+    if composer.project_volume_get() is not None:
         click.confirm(
-            "Project volume already exists. Are you sure you want to overwrite it?",
+            "Project volume already exists. Are you sure you want to blow it away?",
             abort=True,
         )
+        composer.project_volume_delete()
+    composer.project_volume_create()
 
     with composer.bootstrap_spawn() as container:
         do_clone(container, config)
-        compose_up(container)
+        run_compose(container, config, ['up', '--detach'])
 
 
 @main.command()

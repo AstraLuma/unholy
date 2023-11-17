@@ -142,9 +142,29 @@ class Compose:
             } | labels,
         )
 
+    def _socket_mount_opts(self):
+        """
+        Get the options needed for a container to access the docker socket.
+        """
+        # TODO: Use https://github.com/Tecnativa/docker-socket-proxy instead?
+        return {
+            'environment': {
+                'DOCKER_HOST': 'unix:///var/run/docker.sock',
+            },
+            'mounts': [
+                docker.types.Mount(
+                    target='/var/run/docker.sock',
+                    source='/var/run/docker.sock',  # FIXME: Detect this
+                    type='bind',
+                )
+            ],
+            # 'privledged': True,
+        }
+
     def container_create(
         self, service, image, *,
         one_off=None, labels=None, mount_docker_socket=False,
+        environment=None, mounts=None,
         **opts
     ):
         labels = {
@@ -156,11 +176,21 @@ class Compose:
         if labels is not None:
             labels |= labels
         if mount_docker_socket:
-            # TODO: Implement
-            ...
+            socket_bits = self._socket_mount_opts()
+            if environment is None:
+                environment = {}
+            environment |= socket_bits.pop('environment', {})
+            if mounts is None:
+                mounts = []
+            mounts += socket_bits.pop('mounts', [])
+            opts |= socket_bits
+
         return self.client.containers.create(
-            name=f"{self.project_name}_{service}",
+            # FIXME: Implement service increment
+            name=f"{self.project_name}-{service}-1",
             image=image,
+            environment=environment,
+            mounts=mounts,
             **opts
         )
 
@@ -170,7 +200,7 @@ class UnholyCompose(Compose):
     Adds unholy-specific resource concepts to Compose.
     """
 
-    BOOTSTRAP_IMAGE = 'ghcr.io/astraluma/unholy/bootstrap:nightly'
+    BOOTSTRAP_IMAGE = 'ghcr.io/astraluma/unholy/bootstrap:trunk'
     PROJECT_MOUNTPOINT = '/project'
 
     def __init__(self, *p, **kw):
@@ -191,6 +221,14 @@ class UnholyCompose(Compose):
         """
         assert self.project_volume_get() is None
         return self.volume_create(self.project_volume_name)
+
+    def project_volume_delete(self):
+        """
+        Deletes the project volume
+        """
+        vol = self.project_volume_get()
+        if vol is not None:
+            vol.remove()
 
     @contextmanager
     def bootstrap_spawn(self) -> docker.models.containers.Container:

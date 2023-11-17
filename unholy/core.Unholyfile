@@ -14,7 +14,7 @@ volume = "project"
 
 [compose]
 #: Compose file to use
-# file = "compose.yaml"
+file = "compose.yaml"
 
 #: The name of the compose project
 # project = ""
