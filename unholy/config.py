@@ -44,7 +44,6 @@ def _split_headmatter(text):
         yield first
         # We have headmatter
         for line in fobj:
-            print(f"{line=}")
             if _DIVIDER.match(line.strip()):
                 yield head
                 yield line
@@ -181,7 +180,10 @@ def get_config_stack(*, project_name=None, project_config=None) -> Mapping:
         # Standard stack
         *(
             config
-            for config, _ in _get_file_stack(project_name=project_name, project_config=project_config)
+            for config, _ in _get_file_stack(
+                project_name=project_name,
+                project_config=project_config,
+            )
         ),
     ]
     if project_config and not isinstance(project_config, str):

@@ -90,7 +90,7 @@ def guess_project_from_url(url) -> str:
     """
     Given a git remote URL, guess the project name.
     """
-    end = url.split('/', 1)[-1]
+    end = url.rsplit('/', 1)[-1]
     assert '?' not in end
     assert '#' not in end
     end = end.removesuffix('.git')

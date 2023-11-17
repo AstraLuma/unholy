@@ -1,4 +1,21 @@
 ---
+#: gir url
+# repository = ""
+
+#: Docker context to use
+# ...
+
 [dev]
+#: The base image for the dev container
 image = "docker.io/library/debian:latest"
+
+#: The name of the volume containing the source
+volume = "project"
+
+[compose]
+#: Compose file to use
+# file = "compose.yaml"
+
+#: The name of the compose project
+# project = ""
 ---
