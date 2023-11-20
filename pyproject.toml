@@ -16,6 +16,9 @@ appdirs = "^1.4.4"
 [tool.poetry.scripts]
 unholy = 'unholy:main'
 
+[tool.poetry.group.dev.dependencies]
+flake8 = "^6.1.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

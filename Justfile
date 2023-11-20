@@ -2,6 +2,10 @@
 help:
   just --list
 
+# Run lint tools
+lint:
+  poetry run flake8
+
 # Build the bootstrap container
 build-bootstrap:
   docker build -f bootstrap.Dockerfile -t ghcr.io/astraluma/unholy/bootstrap:nightly .
