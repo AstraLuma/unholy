@@ -5,11 +5,13 @@ from contextlib import contextmanager
 import enum
 from pathlib import Path
 import subprocess
-from typing import Iterator
+from typing import Iterable, Iterator
 
 import docker
+import docker.errors
+import docker.models
 
-from .docker import get_client, smart_pull, mount
+from .docker import get_client, smart_pull, mount, inject_and_run
 
 
 def find_compose() -> Path:
@@ -161,20 +163,31 @@ class Compose:
             # 'privledged': True,
         }
 
+    def container_list(self) -> Iterator[docker.models.containers.Container]:
+        """
+        Enumerate realized containers associated with this project.
+        """
+        for con in self.client.containers.list(all=True):
+            if con.labels.get(Label.Project) == self.project_name:
+                yield con
+
     def container_create(
         self, service, image, *,
         one_off=None, labels=None, mount_docker_socket=False,
         environment=None, mounts=None,
         **opts
     ):
-        labels = {
+        # FIXME: Implement service increment
+        default_labels = {
             Label.Project: self.project_name,
             Label.Service: service,
         }
         if one_off is not None:
-            labels[Label.OneOff] = repr(bool(one_off))
+            default_labels[Label.OneOff] = repr(bool(one_off))
         if labels is not None:
-            labels |= labels
+            labels = default_labels | labels
+        else:
+            labels = default_labels
         if mount_docker_socket:
             socket_bits = self._socket_mount_opts()
             if environment is None:
@@ -186,9 +199,9 @@ class Compose:
             opts |= socket_bits
 
         return self.client.containers.create(
-            # FIXME: Implement service increment
             name=f"{self.project_name}-{service}-1",
             image=image,
+            labels=labels,
             environment=environment,
             mounts=mounts,
             **opts
@@ -200,8 +213,9 @@ class UnholyCompose(Compose):
     Adds unholy-specific resource concepts to Compose.
     """
 
-    BOOTSTRAP_IMAGE = 'ghcr.io/astraluma/unholy/bootstrap:trunk'
+    BOOTSTRAP_IMAGE = 'ghcr.io/astraluma/unholy/bootstrap:nightly'
     PROJECT_MOUNTPOINT = '/project'
+    DEVENV_SERVICE = 'devenv'
 
     def __init__(self, *p, **kw):
         super().__init__(*p, **kw)
@@ -248,7 +262,6 @@ class UnholyCompose(Compose):
             ],
             working_dir=self.PROJECT_MOUNTPOINT,
             mount_docker_socket=True,
-            # TODO: Docker socket
             # TODO: ssh agent forward
         )
         cont.start()
@@ -259,5 +272,55 @@ class UnholyCompose(Compose):
             try:
                 cont.remove()
             except docker.errors.APIError:
-                # This usually happens, since the container is set to auto-remove
+                # This usually happens, because auto_remove
                 pass
+
+    def devenv_get(self) -> None | docker.models.containers.Container:
+        """
+        Get the devenv container, if it exists.
+        """
+        for con in self.container_list():
+            if con.labels.get(Label.Service) == self.DEVENV_SERVICE:
+                return con
+
+    def devenv_create(self, scripts: Iterable[str]):
+        """
+        Create the devenv container.
+
+        Args:
+            scripts: The list of configuration scripts to run.
+        """
+        img = smart_pull(self.client, self.config['dev']['image'])
+        proj = self.project_volume_get()
+        assert proj is not None
+        cont = self.container_create(
+            self.DEVENV_SERVICE, img,
+            command=['sleep', 'infinity'],
+            init=True,
+            mounts=[
+                mount(self.PROJECT_MOUNTPOINT, proj),
+                # TODO: Other mounts
+            ],
+            tmpfs={
+                '/tmp': '',
+            },
+            working_dir=self.PROJECT_MOUNTPOINT,
+            mount_docker_socket=True,
+            # TODO: ssh agent forward
+            # TODO: Networks
+        )
+        cont.start()
+        for i, script in enumerate(scripts):
+            if script:
+                inject_and_run(
+                    cont, fix_script(script),
+                    cwd='/project',
+                    name=f'unholyscript-{i}'
+                )
+        return cont
+
+
+def fix_script(script: str) -> str:
+    if not script.startswith('#!'):
+        script = '#!/bin/sh\n' + script
+    return script

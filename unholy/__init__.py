@@ -9,7 +9,7 @@ from .compose import (
     UnholyCompose,
     find_compose, guess_annotations, nvim_annotations, nvim_name, ensure_up,
 )
-from .config import edit_config, get_config_stack, project_config_path
+from .config import edit_config, get_config_stack, get_script_stack, project_config_path
 from .docker import find_networks, start_nvim
 from .git import guess_project_from_url, pull_file
 from .nvim import start_neovide
@@ -72,6 +72,9 @@ def clone(name, repository, remote, branch):
 
     # Do initialization
     composer = UnholyCompose(name, config)
+    if (c := composer.devenv_get()) is not None:
+        c.remove(force=True)
+
     if composer.project_volume_get() is not None:
         click.confirm(
             "Project volume already exists. Are you sure you want to blow it away?",
@@ -83,6 +86,10 @@ def clone(name, repository, remote, branch):
     with composer.bootstrap_spawn() as container:
         do_clone(container, config)
         run_compose(container, config, ['up', '--detach'])
+
+    composer.devenv_create(
+        get_script_stack(project_name=name, project_config=uf),
+    )
 
 
 @main.command()

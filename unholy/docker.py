@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tarfile
 
 import click
 import docker
@@ -90,6 +91,59 @@ def mount(mountpoint: str, volume: docker.models.volumes.Volume, **opts) -> dock
     )
 
 
+class DockerExec:
+    @classmethod
+    def create(cls, container, /, **opts):
+        """
+        Create an exec.
+
+        See :meth:`docker.api.exec_api.ExecApiMixin.exec_create`
+        """
+        resp = container.client.api.exec_create(
+            container.id, **opts,
+        )
+        return cls(container.client, resp['Id'])
+
+    def __init__(self, client, id):
+        self.api = client.api
+        self.id = id
+
+    def inspect(self) -> dict:
+        """
+        Get some basic info.
+
+        See https://docs.docker.com/engine/api/v1.43/#tag/Exec/operation/ExecInspect
+        """
+        return self.api.exec_inspect(self.id)
+
+    def resize(self, height=None, width=None):
+        """
+        Resize the PTY of the command.
+        """
+        self.api.exec_resize(self.id, height=height, width=width)
+
+    def start(self, **opts):
+        """
+        Start the command. You're kinda on your own.
+
+        See :meth:`docker.api.exec_api.ExecApiMixin.exec_start`
+        """
+        return self.api.exec_start(self.id, **opts)
+
+    def start_with_pipes(self, *, stdin=None, stdout=None, stderr=None, tty=False):
+        """
+        Start the command, but handle passing data between everything.
+        """
+        sock = self.start(
+            detach=False, tty=tty, stream=False, socket=True, demux=False,
+        )
+        # I think stdin is just the raw stream?
+
+        raise NotImplementedError
+
+    # TODO: Look into sending signals
+
+
 def container_run(
     container, cmd, *,
     stdout=None, stderr=None,
@@ -98,11 +152,13 @@ def container_run(
     env: dict[str, str] | None = None,
     encoding: str | None = None,
     errors: str = 'strict',
+    tty=False,
 ) -> subprocess.CompletedProcess:
     """
     Presents a subprocess-like interface to container processes.
     """
     if stdout is None:
+        sys.stdout.flush()
         pipe_out = sys.stdout.buffer
     elif stdout is subprocess.DEVNULL:
         pipe_out = open(os.devnull, 'wb')
@@ -113,6 +169,7 @@ def container_run(
         # FIXME: Handle if we're handed a text-mode pipe
 
     if stderr is None:
+        sys.stderr.flush()
         pipe_err = sys.stderr.buffer
     elif stderr is subprocess.DEVNULL:
         pipe_err = open(os.devnull, 'wb')
@@ -124,14 +181,14 @@ def container_run(
         pipe_err = stderr
         # FIXME: Handle if we're handed a text-mode pipe
 
-    resp = container.client.api.exec_create(
-        container.id, cmd,
+    exec = DockerExec.create(
+        container, cmd=cmd,
         stdout=True, stderr=True,
-        # stdin=stdin, tty=tty, privileged=privileged, user=user,
-        environment=env, workdir=cwd,
+        # stdin=stdin,  privileged=privileged, user=user,
+        environment=env, workdir=cwd, tty=tty,
     )
-    sock = container.client.api.exec_start(
-        resp['Id'], detach=False, tty=False, stream=False, socket=True,
+    sock = exec.start(
+        detach=False, tty=False, stream=False, socket=True,
         demux=False,
     )
 
@@ -143,7 +200,7 @@ def container_run(
     for pipe, chunk in docker.utils.socket.frames_iter(sock, False):
         pipemap[pipe].write(chunk)
 
-    info = container.client.api.exec_inspect(resp['Id'])
+    info = exec.inspect()
 
     assert not info['Running']
     retcode = info['ExitCode']
@@ -164,6 +221,39 @@ def container_run(
             returncode=info['ExitCode'],
             stdout=outval,
             stderr=errval,
+        )
+
+
+def inject_and_run(
+    container: docker.models.containers.Container,
+    script: str,
+    name: str = 'injected-script',
+    **opts
+):
+    """
+    Loat the given script into the container, and then run it with
+    :func:`container_run`.
+    """
+    # Note: Cannot inject files into the tmpfs
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode='w:') as tf:
+        ti = tarfile.TarInfo(name)
+        bscript = script.encode('utf-8')
+        ti.size = len(bscript)
+        ti.mode = 0o755
+        tf.addfile(ti, fileobj=io.BytesIO(bscript))
+    buffer.seek(0)
+    container.put_archive('/', buffer)
+
+    try:
+        container_run(
+            container, [f'/{name}'],
+            check=True, tty=True,
+        )
+    finally:
+        container_run(
+            container, ['rm', '-rf', f'/{name}'],
+            check=True,
         )
 
 

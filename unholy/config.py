@@ -10,7 +10,7 @@ import io
 import os
 import pathlib
 import re
-from typing import Dict, Iterable, Iterator
+from typing import Iterable, Iterator
 
 import appdirs
 import tomlkit
@@ -189,4 +189,17 @@ def get_config_stack(*, project_name=None, project_config=None) -> Mapping:
     if project_config and not isinstance(project_config, str):
         stack += [project_config]
 
-    return ConfigStack(*stack)
+    return ConfigStack(*reversed(stack))
+
+
+def get_script_stack(*, project_name=None, project_config=None) -> Iterable[str]:
+    """
+    Get the complete configuration script stack.
+    """
+    return [
+        script
+        for _, script in _get_file_stack(
+            project_name=project_name,
+            project_config=project_config,
+        )
+    ]
