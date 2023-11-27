@@ -328,6 +328,30 @@ class UnholyCompose(Compose):
                 )
         return cont
 
+    def get_unholyfile(self) -> str:
+        """
+        Gets the config file from the workspace.
+        """
+        with ExitStack() as stack:
+            if (cont := self.devenv_get()) is not None:
+                pass
+            else:
+                cont = stack.enter_context(self.bootstrap_spawn())
+
+            tarblob, _ = cont.get_archive(f'{self.PROJECT_MOUNTPOINT}/Unholyfile')
+            buffer = io.BytesIO()
+            for bit in tarblob:
+                buffer.write(bit)
+            buffer.seek(0)
+            with tarfile.open(fileobj=buffer, mode='r|') as tf:
+                for member in tf:
+                    name = os.path.basename(member.name)
+                    if name == 'Unholyfile':
+                        assert member.isfile()
+                        return tf.extractfile(member).read().decode('utf-8')
+
+        raise RuntimeError("Unable to find Unholyfile in workspace.")
+
 
 def fix_script(script: str) -> str:
     if not script.startswith('#!'):

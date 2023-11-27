@@ -91,6 +91,33 @@ def clone(name, repository, remote, branch):
         get_script_stack(project_name=name, project_config=uf),
     )
 
+@main.command()
+@click.argument('name')
+@format_exceptions
+def remake(name):
+    """
+    Recreate the devenv.
+    """
+    # Start with mostly-complete versions of these objects.
+    config = get_config_stack(project_name=name)
+    composer = UnholyCompose(name, config)
+    uf = composer.get_unholyfile()
+
+    # Recreate these with more complete info
+    config = get_config_stack(project_name=name, project_config=uf)
+    composer = UnholyCompose(name, config)
+
+    # Do initialization
+    if (c := composer.devenv_get()) is not None:
+        c.remove(force=True)
+
+    with composer.bootstrap_spawn() as container:
+        run_compose(container, config, ['up', '--detach'])
+
+    composer.devenv_create(
+        get_script_stack(project_name=name, project_config=uf),
+    )
+
 
 @main.command()
 def workon():
