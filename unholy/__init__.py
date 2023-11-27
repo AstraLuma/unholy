@@ -7,10 +7,8 @@ import click
 
 from .compose import (
     UnholyCompose,
-    find_compose, guess_annotations, nvim_annotations, nvim_name, ensure_up,
 )
 from .config import edit_config, get_config_stack, get_script_stack, project_config_path
-from .docker import find_networks, start_nvim
 from .git import guess_project_from_url, pull_file
 from .nvim import start_neovide
 from .processes import do_clone, run_compose
@@ -80,8 +78,8 @@ def clone(name, repository, remote, branch):
             "Project volume already exists. Are you sure you want to blow it away?",
             abort=True,
         )
-        composer.project_volume_delete()
-    composer.project_volume_create()
+        composer.workspace_delete()
+    composer.workspace_create()
 
     with composer.bootstrap_spawn() as container:
         do_clone(container, config)
@@ -118,33 +116,3 @@ def remake(name):
         get_script_stack(project_name=name, project_config=uf),
     )
 
-
-@main.command()
-def workon():
-    """
-    Start neovim and open neovide
-    """
-    cpath = find_compose()
-    print(f"{cpath=}")
-    ensure_up(cpath)
-    proj_annos = guess_annotations(cpath)
-    print(f"{proj_annos=}")
-    nv_annos = nvim_annotations(cpath)
-    print(f"{nv_annos}")
-    nv_name = nvim_name(cpath)
-    print(f"{nv_name=}")
-    nv = start_nvim(
-        name=nv_name,
-        image=NVIM_CONTAINER,
-        labels=nv_annos,
-        nets=list(find_networks(proj_annos)),
-        src_dir=Path.cwd().absolute()
-    )
-    start_neovide(nv.port)
-
-
-@main.command()
-def shell():
-    """
-    Start a shell
-    """

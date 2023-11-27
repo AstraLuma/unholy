@@ -17,21 +17,6 @@ import docker.models
 from .docker import get_client, smart_pull, mount, inject_and_run
 
 
-def find_compose() -> Path:
-    """
-    Walk up the parents, looking for a docker-compose file.
-
-    Raises a FileNotFoundError if there isn't one.
-    """
-    curdir = Path.cwd().absolute()
-    while curdir.parent != curdir:
-        if (curdir / 'docker-compose.yml').exists():
-            return curdir / 'docker-compose.yml'
-        curdir = curdir.parent
-    else:
-        raise FileNotFoundError('Could not find a compose file')
-
-
 class Label(enum.StrEnum):
     # From https://github.com/docker/compose/blob/7daa2a5325c2fe2608db90e6f4500fac21bd53b7/pkg/api/labels.go#L28-L59
     #: allow to track resource related to a compose project
@@ -66,49 +51,6 @@ class Label(enum.StrEnum):
     ImageBuilder = "com.docker.compose.image.builder"
     #: is set when container is created to replace another container(recreated)
     ContainerReplace = "com.docker.compose.replace"
-
-
-def guess_annotations(compose: Path) -> dict:
-    """
-    Looks at a compose file and guesses the annotations its resources
-    will have.
-    """
-    compose = compose.absolute()
-    project_name = compose.parent.name
-    return {
-        Label.Project: project_name,
-        Label.WorkingDir: str(compose.parent),
-        Label.ConfigFiles: str(compose),
-    }
-
-
-def nvim_annotations(compose: Path) -> dict:
-    """
-    Returns the annotations that should be used on the nvim container.
-    """
-    return guess_annotations(compose) | {
-        Label.OneOff: 'False',
-        Label.Service: 'nvim',
-    }
-
-
-def nvim_name(compose: Path) -> str:
-    """
-    Returns the name that should be used for the nvim container.
-    """
-    annos = nvim_annotations(compose)
-    base = annos[Label.Project]
-    return f"{base}-nvim"
-
-
-def ensure_up(compose: Path) -> None:
-    """
-    Ensures the given compose cluster is up.
-    """
-    subprocess.run(
-        ['docker', 'compose', '--file', compose.absolute(), 'up', '--detach'],
-        check=True, stdin=subprocess.DEVNULL,
-    )
 
 
 class Compose:
