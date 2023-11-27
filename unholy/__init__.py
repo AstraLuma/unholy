@@ -75,7 +75,7 @@ def clone(name, repository, remote, branch):
     if (c := composer.devenv_get()) is not None:
         c.remove(force=True)
 
-    if composer.project_volume_get() is not None:
+    if composer.workspace_get() is not None:
         click.confirm(
             "Project volume already exists. Are you sure you want to blow it away?",
             abort=True,

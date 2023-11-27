@@ -1,10 +1,13 @@
 """
 Utilities for working with docker compose.
 """
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import enum
+import io
+import os.path
 from pathlib import Path
 import subprocess
+import tarfile
 from typing import Iterable, Iterator
 
 import docker
@@ -213,6 +216,12 @@ class UnholyCompose(Compose):
     Adds unholy-specific resource concepts to Compose.
     """
 
+    # There's three resources that unholy cares about:
+    # * The workspace--the persistent place to keep the project
+    # * The devenv--A semi-ephemeral container the user actually works in
+    # * Bootstrap container--Ephemeral container used for some operations when
+    #   a devenv might not be available
+
     BOOTSTRAP_IMAGE = 'ghcr.io/astraluma/unholy/bootstrap:nightly'
     PROJECT_MOUNTPOINT = '/project'
     DEVENV_SERVICE = 'devenv'
@@ -221,7 +230,7 @@ class UnholyCompose(Compose):
         super().__init__(*p, **kw)
         self.project_volume_name = self.config.get('dev', {}).get('volume')
 
-    def project_volume_get(self) -> None | docker.models.volumes.Volume:
+    def workspace_get(self) -> None | docker.models.volumes.Volume:
         """
         Searches for the project volume, or returns None
         """
@@ -229,18 +238,18 @@ class UnholyCompose(Compose):
             if vol.attrs['Labels'].get(Label.Volume) == self.project_volume_name:
                 return vol
 
-    def project_volume_create(self) -> docker.models.volumes.Volume:
+    def workspace_create(self) -> docker.models.volumes.Volume:
         """
         Creates a fresh project volume
         """
-        assert self.project_volume_get() is None
+        assert self.workspace_get() is None
         return self.volume_create(self.project_volume_name)
 
-    def project_volume_delete(self):
+    def workspace_delete(self):
         """
         Deletes the project volume
         """
-        vol = self.project_volume_get()
+        vol = self.workspace_get()
         if vol is not None:
             vol.remove()
 
@@ -250,7 +259,7 @@ class UnholyCompose(Compose):
         Start a bootstrap container and clean it up when done.
         """
         img = smart_pull(self.client, self.BOOTSTRAP_IMAGE)
-        proj = self.project_volume_get()
+        proj = self.workspace_get()
         assert proj is not None
         cont = self.container_create(
             'bootstrap', img,
@@ -291,7 +300,7 @@ class UnholyCompose(Compose):
             scripts: The list of configuration scripts to run.
         """
         img = smart_pull(self.client, self.config['dev']['image'])
-        proj = self.project_volume_get()
+        proj = self.workspace_get()
         assert proj is not None
         cont = self.container_create(
             self.DEVENV_SERVICE, img,

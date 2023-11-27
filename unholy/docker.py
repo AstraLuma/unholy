@@ -17,7 +17,6 @@ import docker.utils
 from .nvim import pick_port
 
 
-print("Creating docker client")
 client = docker.from_env()
 
 
