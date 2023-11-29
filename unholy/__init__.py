@@ -1,7 +1,9 @@
+from collections.abc import Mapping
+from dataclasses import dataclass
 import functools
-from pathlib import Path
 import subprocess
 import sys
+import time
 
 import click
 
@@ -10,7 +12,6 @@ from .compose import (
 )
 from .config import edit_config, get_config_stack, get_script_stack, project_config_path
 from .git import guess_project_from_url, pull_file
-from .nvim import start_neovide
 from .processes import do_clone, run_compose
 
 
@@ -89,12 +90,20 @@ def clone(name, repository, remote, branch):
         get_script_stack(project_name=name, project_config=uf),
     )
 
-@main.command()
-@click.argument('name')
-@format_exceptions
-def remake(name):
+
+@dataclass
+class UnholyBits:
+    #: Unholyfile contents from the project
+    unholyfile: str
+    #: Config stack
+    config: Mapping
+    #: Compose for invoking docker
+    compose: UnholyCompose
+
+
+def get_bits(name: str) -> UnholyBits:
     """
-    Recreate the devenv.
+    Does the right invocations to produce a configured compose.
     """
     # Start with mostly-complete versions of these objects.
     config = get_config_stack(project_name=name)
@@ -104,15 +113,67 @@ def remake(name):
     # Recreate these with more complete info
     config = get_config_stack(project_name=name, project_config=uf)
     composer = UnholyCompose(name, config)
-
-    # Do initialization
-    if (c := composer.devenv_get()) is not None:
-        c.remove(force=True)
-
-    with composer.bootstrap_spawn() as container:
-        run_compose(container, config, ['up', '--detach'])
-
-    composer.devenv_create(
-        get_script_stack(project_name=name, project_config=uf),
+    return UnholyBits(
+        unholyfile=uf,
+        config=config,
+        compose=composer,
     )
 
+
+@main.command()
+@click.argument('name')
+@format_exceptions
+def remake(name):
+    """
+    Recreate the devenv.
+    """
+    unholy = get_bits(name)
+    # Do initialization
+    if (c := unholy.compose.devenv_get()) is not None:
+        c.remove(force=True)
+
+    with unholy.compose.bootstrap_spawn() as container:
+        run_compose(container, unholy.config, ['up', '--detach'])
+
+    unholy.compose.devenv_create(
+        get_script_stack(project_name=name, project_config=unholy.unholyfile),
+    )
+
+
+@main.command()
+@click.argument('name')
+@format_exceptions
+def neovide(name):
+    """
+    Open neovim/neovide inside the devenv
+    """
+    unholy = get_bits(name)
+    devenv = unholy.compose.devenv_get()
+    with unholy.compose.docker_script(
+        'exec',
+        '--interactive',
+        '--workdir', unholy.compose.PROJECT_MOUNTPOINT,
+        devenv,
+        'nvim',
+    ) as scriptfile:
+        subprocess.run(['neovide', '--neovim-bin', scriptfile,], check=True)
+        time.sleep(1)  # Magic wait so neovide has time to exec the script
+
+
+@main.command()
+@click.argument('name')
+@format_exceptions
+def shell(name):
+    """
+    Open a shell inside the devenv
+    """
+    unholy = get_bits(name)
+    devenv = unholy.compose.devenv_get()
+    cmd = unholy.compose.docker_cmd(
+        'exec',
+        '--interactive', '--tty',
+        '--workdir', unholy.compose.PROJECT_MOUNTPOINT,
+        devenv,
+        '/bin/bash',  # TODO: Read shell from config
+    )
+    subprocess.run(cmd, check=True)

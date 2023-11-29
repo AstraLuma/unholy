@@ -5,9 +5,9 @@ from contextlib import contextmanager, ExitStack
 import enum
 import io
 import os.path
-from pathlib import Path
-import subprocess
+import shlex
 import tarfile
+import tempfile
 from typing import Iterable, Iterator
 
 import docker
@@ -293,6 +293,36 @@ class UnholyCompose(Compose):
                         return tf.extractfile(member).read().decode('utf-8')
 
         raise RuntimeError("Unable to find Unholyfile in workspace.")
+
+    def docker_cmd(self, *cmd: str | docker.models.containers.Container):
+        """
+        Builds the command to invoke docker.
+        """
+        prefix = ['docker']
+        # TODO: Docker contexts
+        return [*prefix, *(
+            bit.name if isinstance(bit, docker.models.containers.Container)
+            else str(bit)
+            for bit in cmd
+        )]
+
+    @contextmanager
+    def docker_script(self, *cmd: str | docker.models.containers.Container, **opts):
+        """
+        Writes out a script to invoke docker itself.
+        """
+        with tempfile.NamedTemporaryFile('wt+', delete_on_close=False, **opts) as ntf:
+            ntf.write("#!/bin/bash\n")  # We use a bashism below
+            ntf.write('exec ')
+            ntf.write(shlex.join(self.docker_cmd(*cmd)))
+            ntf.write(' "$@"\n')
+            ntf.flush()
+
+            os.chmod(ntf.name, 0o755)
+
+            # Gotta close the file, else "text file busy"
+            ntf.close()
+            yield ntf.name
 
 
 def fix_script(script: str) -> str:

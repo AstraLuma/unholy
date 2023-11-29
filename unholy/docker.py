@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import io
 import os
 from pathlib import Path
@@ -13,10 +12,6 @@ import docker.models.images
 import docker.types
 from docker.transport.unixconn import UnixHTTPAdapter
 import docker.utils
-
-from .nvim import pick_port
-
-
 
 
 def get_client(use: str | None = None) -> docker.DockerClient:
