@@ -47,10 +47,10 @@ def main():
 @main.command()
 @click.option('--name', help="Project name (default: guess from repository URL)")
 @click.argument('repository')
-@click.option('--remote', '-o', help="Name of the remote (default: origin)")
+#@click.option('--remote', '-o', help="Name of the remote (default: origin)")
 @click.option('--branch', '-b', help="Namoe of the branch (default: remote's HEAD)")
 @format_exceptions
-def clone(name, repository, remote, branch):
+def new(name, repository, branch):
     """
     Create a new project from a git repo
     """
