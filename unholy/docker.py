@@ -121,6 +121,7 @@ class DockerExec:
             detach=False, tty=tty, stream=False, socket=True, demux=False,
         )
         # I think stdin is just the raw stream?
+        sock  # Make flake8 happy
 
         raise NotImplementedError
 
