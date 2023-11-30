@@ -146,7 +146,7 @@ def remake(name):
         c.remove(force=True)
 
     with unholy.compose.bootstrap_spawn() as container:
-        composer.compose_run('up', '--detach', container=container)
+        unholy.compose.compose_run('up', '--detach', container=container)
 
     unholy.compose.devenv_create(
         get_script_stack(project_name=name, project_config=unholy.unholyfile),

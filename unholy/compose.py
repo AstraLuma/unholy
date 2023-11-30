@@ -354,6 +354,7 @@ class UnholyCompose(Compose):
             **opts
         )
 
+
 def fix_script(script: str) -> str:
     if not script.startswith('#!'):
         script = '#!/bin/sh\n' + script

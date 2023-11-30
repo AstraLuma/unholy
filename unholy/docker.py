@@ -14,10 +14,12 @@ import docker.types
 from docker.transport.unixconn import UnixHTTPAdapter
 import docker.utils
 
+
 class ContextNotExistError(ValueError):
     """
     The given context does not exist
     """
+
 
 def _docker_3190_workaround():
     """
@@ -30,6 +32,7 @@ def _docker_3190_workaround():
         if config_path.parent.exists():
             # If .docker doesn't exist, it doesn't contain contexts
             config_path.touch()
+
 
 @functools.cache
 def get_client(use: str | None = None) -> docker.DockerClient:

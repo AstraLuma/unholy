@@ -4,7 +4,7 @@ help:
 
 # Run lint tools
 lint:
-  poetry run flake8
+  poetry run flake8 unholy
 
 # Build the bootstrap container
 build-bootstrap:
