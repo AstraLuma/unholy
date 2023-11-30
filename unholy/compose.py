@@ -73,7 +73,8 @@ class Compose:
         Enumerate realized volumes associated with this project.
         """
         for vol in self.client.volumes.list():
-            if vol.attrs['Labels'].get(Label.Project) == self.project_name:
+            if vol.attrs['Labels'] and \
+                    vol.attrs['Labels'].get(Label.Project) == self.project_name:
                 yield vol
 
     def volume_create(self, name, *, labels=None) -> docker.models.volumes.Volume:
