@@ -1,3 +1,4 @@
+import functools
 import io
 import os
 from pathlib import Path
@@ -30,7 +31,7 @@ def _docker_3190_workaround():
             # If .docker doesn't exist, it doesn't contain contexts
             config_path.touch()
 
-
+@functools.cache
 def get_client(use: str | None = None) -> docker.DockerClient:
     """
     Get a docker client for the given docker context
