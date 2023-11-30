@@ -146,7 +146,7 @@ def remake(name):
         c.remove(force=True)
 
     with unholy.compose.bootstrap_spawn() as container:
-        run_compose(container, unholy.config, ['up', '--detach'])
+        composer.compose_run('up', '--detach', container=container)
 
     unholy.compose.devenv_create(
         get_script_stack(project_name=name, project_config=unholy.unholyfile),
@@ -165,7 +165,7 @@ def neovide(name):
     with unholy.compose.docker_script(
         'exec',
         '--interactive',
-        '--workdir', unholy.compose.PROJECT_MOUNTPOINT,
+        '--workdir', unholy.compose.WORKSPACE_MOUNTPOINT,
         devenv,
         'nvim',
     ) as scriptfile:
@@ -185,7 +185,7 @@ def shell(name):
     cmd = unholy.compose.docker_cmd(
         'exec',
         '--interactive', '--tty',
-        '--workdir', unholy.compose.PROJECT_MOUNTPOINT,
+        '--workdir', unholy.compose.WORKSPACE_MOUNTPOINT,
         devenv,
         '/bin/bash',  # TODO: Read shell from config
     )
