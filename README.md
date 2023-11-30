@@ -36,7 +36,8 @@ image="python"
 pip install pytest
 ```
 
-The complete headmatter schema is loosely documented in [core.Unholyfile](unholy/core.Unholyfile).
+The complete headmatter schema is loosely documented in
+[core.Unholyfile](https://github.com/AstraLuma/unholy/blob/trunk/unholy/core.Unholyfile).
 
 The script supports a `#!`, defaulting to `#!/bin/sh`
 
