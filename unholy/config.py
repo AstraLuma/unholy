@@ -124,6 +124,22 @@ def project_config_path(name: str) -> pathlib.Path:
     return config_path() / f"{name}.Unholyfile"
 
 
+def list_project_paths() -> Iterable[pathlib.Path]:
+    """
+    List projects by config path
+    """
+    for cp in config_path().glob('*.Unholyfile'):
+        yield cp
+
+
+def list_projects() -> Iterable[str]:
+    """
+    List projects by name
+    """
+    for path in list_project_paths():
+        yield path.stem
+
+
 class ConfigStack(collections.ChainMap):
     def __getitem__(self, key):
         value = super().__getitem__(key)

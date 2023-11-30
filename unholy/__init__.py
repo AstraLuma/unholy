@@ -10,7 +10,10 @@ import click
 from .compose import (
     UnholyCompose,
 )
-from .config import edit_config, get_config_stack, get_script_stack, project_config_path
+from .config import (
+    edit_config, get_config_stack, get_script_stack, project_config_path,
+    list_projects,
+)
 from .git import guess_project_from_url, pull_file
 from .processes import do_clone
 
@@ -190,3 +193,13 @@ def shell(name):
         '/bin/bash',  # TODO: Read shell from config
     )
     subprocess.run(cmd, check=True)
+
+
+@main.command()
+@format_exceptions
+def ls():
+    """
+    List projects in the local config.
+    """
+    for name in list_projects():
+        click.echo(name)
