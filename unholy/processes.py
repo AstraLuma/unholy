@@ -1,28 +1,15 @@
 from .docker import container_run
 
 
-def do_clone(container, config):
+def do_clone(container, directory, config, *, branch=None, remote=None):
+    opts = []
+    if remote:
+        opts += ['--origin', remote]
+    if branch:
+        opts += ['--branch', branch]
+
     container_run(
-        container, ['git', 'clone', config['repository'], '/project'],
+        container, ['git', 'clone', *opts, config['repository'], directory],
         # FIXME: Handle stdin for passwords and such
         check=True,
-    )
-
-
-def compose_cmd(config) -> list[str]:
-    """
-    Produce the compose base command based on the config.
-    """
-    return [
-        'docker', 'compose',
-        '--file', config['compose']['file'],
-        '--project-name', config['compose']['project'],
-        '--project-directory', '/project',
-    ]
-
-
-def run_compose(container, config, cmd: list[str]):
-    return container_run(
-        container, [*compose_cmd(config), *cmd],
-        check=True, cwd='/project',
     )

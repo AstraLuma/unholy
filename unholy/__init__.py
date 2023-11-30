@@ -12,7 +12,7 @@ from .compose import (
 )
 from .config import edit_config, get_config_stack, get_script_stack, project_config_path
 from .git import guess_project_from_url, pull_file
-from .processes import do_clone, run_compose
+from .processes import do_clone
 
 
 #: The container image to use for nvim
@@ -47,10 +47,11 @@ def main():
 @main.command()
 @click.option('--name', help="Project name (default: guess from repository URL)")
 @click.argument('repository')
-# @click.option('--remote', '-o', help="Name of the remote (default: origin)")
-@click.option('--branch', '-b', help="Namoe of the branch (default: remote's HEAD)")
+@click.option('--remote', '--origin', '-o', help="Name of the remote (default: origin)")
+@click.option('--branch', '-b', help="Name of the branch to check out (default: remote's HEAD)")
+@click.option('--context', '-c', help="Name of the docker context to use (default: unset)")
 @format_exceptions
-def new(name, repository, branch):
+def new(name, repository, branch, remote, context):
     """
     Create a new project from a git repo
     """
@@ -62,11 +63,18 @@ def new(name, repository, branch):
         )
     uf = pull_file(repository, 'Unholyfile', branch=branch)
 
+    config = get_config_stack()  # The vanilla projectless stack
+
     # Write out the project information
     with edit_config(project_config_path(name)) as project:
         project['repository'] = repository
-        # TODO: Write out environment
+        if context:
+            project['context'] = context
+        # Note this so we're less likely to break stuff.
+        project.setdefault('dev', {})['volume'] = config['dev']['volume']
+        # Not recording branch or remote--they're only pertinent to initial set up.
 
+    # The full proper config stack
     config = get_config_stack(project_name=name, project_config=uf)
 
     # Do initialization
@@ -79,16 +87,21 @@ def new(name, repository, branch):
             "Project volume already exists. Are you sure you want to blow it away?",
             abort=True,
         )
+        # Git really wants an empty directory, so it's easiest to just recreate
+        # the workspace.
         composer.workspace_delete()
     composer.workspace_create()
 
     with composer.bootstrap_spawn() as container:
-        do_clone(container, config)
-        run_compose(container, config, ['up', '--detach'])
+        do_clone(container, composer.WORKSPACE_MOUNTPOINT, config, branch=branch, remote=remote)
+        composer.compose_run('up', '--detach', container=container)
 
     composer.devenv_create(
         get_script_stack(project_name=name, project_config=uf),
     )
+
+    click.echo("")
+    click.secho(f"Project {name} created in {context or 'Docker'}", fg='green')
 
 
 @dataclass

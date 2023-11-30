@@ -3,7 +3,7 @@
 # repository = ""
 
 #: Docker context to use
-# ...
+# context = ""
 
 
 [dev]
@@ -11,7 +11,7 @@
 image = "docker.io/library/debian:latest"
 
 #: The name of the volume containing the source
-volume = "project"
+volume = "workspace"
 
 
 [compose]

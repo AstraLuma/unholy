@@ -13,12 +13,33 @@ import docker.types
 from docker.transport.unixconn import UnixHTTPAdapter
 import docker.utils
 
+class ContextNotExistError(ValueError):
+    """
+    The given context does not exist
+    """
+
+def _docker_3190_workaround():
+    """
+    Work around for https://github.com/docker/docker-py/issues/3190
+    """
+    if docker.utils.config.find_config_file() is None:
+        config_path = Path(docker.utils.config.home_dir()) \
+            / docker.utils.config.DOCKER_CONFIG_FILENAME
+
+        if config_path.parent.exists():
+            # If .docker doesn't exist, it doesn't contain contexts
+            config_path.touch()
+
 
 def get_client(use: str | None = None) -> docker.DockerClient:
     """
     Get a docker client for the given docker context
     """
+    _docker_3190_workaround()
+
     context = docker.ContextAPI.get_context(use)
+    if context is None:
+        raise ContextNotExistError(f"Docker context {use!r} not found")
     return docker.DockerClient(
         base_url=context.endpoints["docker"]["Host"],
         tls=context.TLSConfig

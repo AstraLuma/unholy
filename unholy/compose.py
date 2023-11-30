@@ -14,7 +14,7 @@ import docker
 import docker.errors
 import docker.models
 
-from .docker import get_client, smart_pull, mount, inject_and_run
+from .docker import get_client, smart_pull, mount, inject_and_run, container_run
 
 
 class Label(enum.StrEnum):
@@ -66,7 +66,7 @@ class Compose:
             unholy_config.get('compose', {}).get('project') \
             or name
 
-        self.client = get_client()
+        self.client = get_client(self.config.get('context', None))
 
     def volume_list(self) -> Iterator[docker.models.volumes.Volume]:
         """
@@ -152,6 +152,37 @@ class Compose:
             **opts
         )
 
+    def docker_cmd(self, *cmd: str | docker.models.containers.Container):
+        """
+        Builds the command to invoke docker locally.
+        """
+        prefix = ['docker']
+        if 'context' in self.config:
+            prefix += ['--context', self.config['context']]
+        return [*prefix, *(
+            bit.name if isinstance(bit, docker.models.containers.Container)
+            else str(bit)
+            for bit in cmd
+        )]
+
+    @contextmanager
+    def docker_script(self, *cmd: str | docker.models.containers.Container, **opts):
+        """
+        Writes out a script to invoke docker itself.
+        """
+        with tempfile.NamedTemporaryFile('wt+', delete_on_close=False, **opts) as ntf:
+            ntf.write("#!/bin/bash\n")  # We use a bashism below
+            ntf.write('exec ')
+            ntf.write(shlex.join(self.docker_cmd(*cmd)))
+            ntf.write(' "$@"\n')
+            ntf.flush()
+
+            os.chmod(ntf.name, 0o755)
+
+            # Gotta close the file, else "text file busy"
+            ntf.close()
+            yield ntf.name
+
 
 class UnholyCompose(Compose):
     """
@@ -165,31 +196,31 @@ class UnholyCompose(Compose):
     #   a devenv might not be available
 
     BOOTSTRAP_IMAGE = 'ghcr.io/astraluma/unholy/bootstrap:nightly'
-    PROJECT_MOUNTPOINT = '/project'
+    WORKSPACE_MOUNTPOINT = '/workspace'
     DEVENV_SERVICE = 'devenv'
 
     def __init__(self, *p, **kw):
         super().__init__(*p, **kw)
-        self.project_volume_name = self.config.get('dev', {}).get('volume')
+        self.workspace_name = self.config.get('dev', {}).get('volume')
 
     def workspace_get(self) -> None | docker.models.volumes.Volume:
         """
-        Searches for the project volume, or returns None
+        Searches for the workspace, or returns None
         """
         for vol in self.volume_list():
-            if vol.attrs['Labels'].get(Label.Volume) == self.project_volume_name:
+            if vol.attrs['Labels'].get(Label.Volume) == self.workspace_name:
                 return vol
 
     def workspace_create(self) -> docker.models.volumes.Volume:
         """
-        Creates a fresh project volume
+        Creates a fresh workspace
         """
         assert self.workspace_get() is None
-        return self.volume_create(self.project_volume_name)
+        return self.volume_create(self.workspace_name)
 
     def workspace_delete(self):
         """
-        Deletes the project volume
+        Deletes the workspace
         """
         vol = self.workspace_get()
         if vol is not None:
@@ -209,9 +240,9 @@ class UnholyCompose(Compose):
             init=True,
             auto_remove=True,
             mounts=[
-                mount(self.PROJECT_MOUNTPOINT, proj),
+                mount(self.WORKSPACE_MOUNTPOINT, proj),
             ],
-            working_dir=self.PROJECT_MOUNTPOINT,
+            working_dir=self.WORKSPACE_MOUNTPOINT,
             mount_docker_socket=True,
             # TODO: ssh agent forward
         )
@@ -249,13 +280,13 @@ class UnholyCompose(Compose):
             command=['sleep', 'infinity'],
             init=True,
             mounts=[
-                mount(self.PROJECT_MOUNTPOINT, proj),
+                mount(self.WORKSPACE_MOUNTPOINT, proj),
                 # TODO: Other mounts
             ],
             tmpfs={
                 '/tmp': '',
             },
-            working_dir=self.PROJECT_MOUNTPOINT,
+            working_dir=self.WORKSPACE_MOUNTPOINT,
             mount_docker_socket=True,
             # TODO: ssh agent forward
             # TODO: Networks
@@ -265,7 +296,7 @@ class UnholyCompose(Compose):
             if script:
                 inject_and_run(
                     cont, fix_script(script),
-                    cwd='/project',
+                    cwd=self.WORKSPACE_MOUNTPOINT,
                     name=f'unholyscript-{i}'
                 )
         return cont
@@ -280,7 +311,7 @@ class UnholyCompose(Compose):
             else:
                 cont = stack.enter_context(self.bootstrap_spawn())
 
-            tarblob, _ = cont.get_archive(f'{self.PROJECT_MOUNTPOINT}/Unholyfile')
+            tarblob, _ = cont.get_archive(f'{self.WORKSPACE_MOUNTPOINT}/Unholyfile')
             buffer = io.BytesIO()
             for bit in tarblob:
                 buffer.write(bit)
@@ -294,36 +325,33 @@ class UnholyCompose(Compose):
 
         raise RuntimeError("Unable to find Unholyfile in workspace.")
 
-    def docker_cmd(self, *cmd: str | docker.models.containers.Container):
+    def compose_cmd(self, *cmd) -> list[str]:
         """
-        Builds the command to invoke docker.
+        Builds the command to invoke compose in the devenv
         """
-        prefix = ['docker']
-        # TODO: Docker contexts
-        return [*prefix, *(
-            bit.name if isinstance(bit, docker.models.containers.Container)
-            else str(bit)
-            for bit in cmd
-        )]
+        return [
+            'docker', 'compose',
+            '--file', self.config['compose']['file'],
+            '--project-name', self.config['compose']['project'],
+            '--project-directory', self.WORKSPACE_MOUNTPOINT,
+            *cmd
+        ]
 
-    @contextmanager
-    def docker_script(self, *cmd: str | docker.models.containers.Container, **opts):
+    def compose_run(self, *cmd, container=None, **opts):
         """
-        Writes out a script to invoke docker itself.
+        Run compose in the devenv
         """
-        with tempfile.NamedTemporaryFile('wt+', delete_on_close=False, **opts) as ntf:
-            ntf.write("#!/bin/bash\n")  # We use a bashism below
-            ntf.write('exec ')
-            ntf.write(shlex.join(self.docker_cmd(*cmd)))
-            ntf.write(' "$@"\n')
-            ntf.flush()
+        if container is None:
+            container = self.devenv_get()
+        assert container is not None
 
-            os.chmod(ntf.name, 0o755)
+        opts.setdefault('cwd', self.WORKSPACE_MOUNTPOINT)
+        opts.setdefault('check', True)
 
-            # Gotta close the file, else "text file busy"
-            ntf.close()
-            yield ntf.name
-
+        return container_run(
+            container, self.compose_cmd(*cmd),
+            **opts
+        )
 
 def fix_script(script: str) -> str:
     if not script.startswith('#!'):
