@@ -165,6 +165,7 @@ def neovide(name):
     """
     unholy = get_bits(name)
     devenv = unholy.compose.devenv_get()
+    unholy.compose.ensure_agent_forward()
     with unholy.compose.docker_script(
         'exec',
         '--interactive',
@@ -185,6 +186,7 @@ def shell(name):
     """
     unholy = get_bits(name)
     devenv = unholy.compose.devenv_get()
+    unholy.compose.ensure_agent_forward()
     cmd = unholy.compose.docker_cmd(
         'exec',
         '--interactive', '--tty',

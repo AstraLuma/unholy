@@ -5,7 +5,9 @@ from contextlib import contextmanager, ExitStack
 import enum
 import io
 import os.path
+import pathlib
 import shlex
+import subprocess
 import tarfile
 import tempfile
 from typing import Iterable, Iterator
@@ -14,6 +16,7 @@ import docker
 import docker.errors
 import docker.models
 
+from .config import app_dirs
 from .docker import get_client, smart_pull, mount, inject_and_run, container_run
 
 
@@ -62,6 +65,7 @@ class Compose:
 
     def __init__(self, name, unholy_config):
         self.config = unholy_config
+        self.name = name
         self.project_name = \
             unholy_config.get('compose', {}).get('project') \
             or name
@@ -245,7 +249,9 @@ class UnholyCompose(Compose):
             ],
             working_dir=self.WORKSPACE_MOUNTPOINT,
             mount_docker_socket=True,
-            # TODO: ssh agent forward
+            environment={
+                'SSH_AUTH_SOCK': self.agent_path(),
+            },
         )
         cont.start()
         try:
@@ -289,7 +295,9 @@ class UnholyCompose(Compose):
             },
             working_dir=self.WORKSPACE_MOUNTPOINT,
             mount_docker_socket=True,
-            # TODO: ssh agent forward
+            environment={
+                'SSH_AUTH_SOCK': self.agent_path(),
+            },
             # TODO: Networks
         )
         cont.start()
@@ -354,8 +362,48 @@ class UnholyCompose(Compose):
             **opts
         )
 
+    def _ssh_lockfile(self):
+        """
+        Path to use for socat lockfile
+        """
+        path = pathlib.Path(app_dirs().user_config_dir)
+        if not path.exists():
+            path.mkdir(parents=True)
+        return path / f"{self.name}.agent-lock"
+
+    def agent_path(self):
+        """
+        The path of the agent socket inside the container.
+        """
+        return "/var/run/ssh-agent.sock"
+
+    def ensure_agent_forward(self):
+        if 'SSH_AUTH_SOCK' not in os.environ:
+            # No agent in the parent environment
+            return
+        lf = self._ssh_lockfile()
+        if lf.exists():
+            # Forward is already running
+            return
+        devenv = self.devenv_get()
+        cmd = self.docker_cmd(
+            'exec', '-i', devenv,
+            'socat',
+            'STDIO',
+            f'UNIX-LISTEN:{self.agent_path()},unlink-early,forever,fork,max-children=1',
+        )
+        subprocess.Popen(
+            [
+                'socat', f"-L{lf}",
+                f"UNIX-CONNECT:{os.environ['SSH_AUTH_SOCK']}",
+                f'EXEC:"{" ".join(cmd)}"'
+            ]
+        )
+
 
 def fix_script(script: str) -> str:
     if not script.startswith('#!'):
         script = '#!/bin/sh\n' + script
     return script
+
+
