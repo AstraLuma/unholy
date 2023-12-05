@@ -15,9 +15,10 @@ from typing import Iterable, Iterator
 import docker
 import docker.errors
 import docker.models
+from unholy.junk_drawer import tarfile_add
 
 from .config import app_dirs
-from .docker import get_client, smart_pull, mount, inject_and_run, container_run
+from .docker import get_client, smart_pull, mount, inject_and_run, container_run, wait_for_status
 
 
 class Label(enum.StrEnum):
@@ -231,10 +232,44 @@ class UnholyCompose(Compose):
         if vol is not None:
             vol.remove()
 
+    def _inject_config(self, cont: docker.models.containers.Container):
+        """
+        Copy some specific user config files to the container
+        """
+        real_home = pathlib.Path.home()
+        cont_home = container_run(
+            cont, ['/bin/sh', '-c', 'echo ~'],
+            stdout=subprocess.PIPE, encoding='utf-8',
+        ).stdout.strip()
+
+        files_to_try = [
+            real_home / '.gitconfig',
+            real_home / '.ssh' / 'known_hosts',
+            *(real_home / '.ssh').glob('*.pub'),
+            # real_home / '.ssh' / 'config',  # XXX: Include this?
+        ]
+
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode='w:') as tf:
+            for file in files_to_try:
+                if file.exists():
+                    st = file.stat()
+                    tarfile_add(
+                        tf, str(file.relative_to(real_home)), file.read_bytes(),
+                        mode = st.st_mode,
+                    )
+
+        buf.seek(0)
+        cont.put_archive(cont_home, buf)
+
+
     @contextmanager
-    def bootstrap_spawn(self) -> docker.models.containers.Container:
+    def bootstrap_spawn(self, accessories=True) -> docker.models.containers.Container:
         """
         Start a bootstrap container and clean it up when done.
+
+        Args:
+            accessories: Whether to include config blobs, ssh agent, and other bits
         """
         img = smart_pull(self.client, self.BOOTSTRAP_IMAGE)
         proj = self.workspace_get()
@@ -248,12 +283,17 @@ class UnholyCompose(Compose):
                 mount(self.WORKSPACE_MOUNTPOINT, proj),
             ],
             working_dir=self.WORKSPACE_MOUNTPOINT,
-            mount_docker_socket=True,
+            mount_docker_socket=accessories,
             environment={
                 'SSH_AUTH_SOCK': self.agent_path(),
             },
         )
+        print("Starting")
         cont.start()
+        if accessories:
+            self._inject_config(cont)
+            wait_for_status(cont, 'running')
+            self.ensure_agent_forward(cont)
         try:
             yield cont
         finally:
@@ -270,6 +310,8 @@ class UnholyCompose(Compose):
         """
         for con in self.container_list():
             if con.labels.get(Label.Service) == self.DEVENV_SERVICE:
+                if not con.status != 'running':
+                    con.start()
                 return con
 
     def devenv_create(self, scripts: Iterable[str]):
@@ -302,6 +344,7 @@ class UnholyCompose(Compose):
             # TODO: Networks
         )
         cont.start()
+        self._inject_config(cont)
         for i, script in enumerate(scripts):
             if script:
                 inject_and_run(
@@ -319,9 +362,12 @@ class UnholyCompose(Compose):
             if (cont := self.devenv_get()) is not None:
                 pass
             else:
-                cont = stack.enter_context(self.bootstrap_spawn())
+                cont = stack.enter_context(self.bootstrap_spawn(accessories=False))
 
-            tarblob, _ = cont.get_archive(f'{self.WORKSPACE_MOUNTPOINT}/Unholyfile')
+            try:
+                tarblob, _ = cont.get_archive(f'{self.WORKSPACE_MOUNTPOINT}/Unholyfile')
+            except docker.errors.NotFound as exc:
+                raise FileNotFoundError("Unholyfile not in workspace") from exc
             buffer = io.BytesIO()
             for bit in tarblob:
                 buffer.write(bit)
@@ -341,9 +387,9 @@ class UnholyCompose(Compose):
         """
         return [
             'docker', 'compose',
-            '--file', self.config['compose']['file'],
+            '--file', pathlib.PurePosixPath(self.WORKSPACE_MOUNTPOINT) / self.config['compose']['file'],
             '--project-name', self.config['compose']['project'],
-            '--project-directory', self.WORKSPACE_MOUNTPOINT,
+            # '--project-directory', self.WORKSPACE_MOUNTPOINT,
             *cmd
         ]
 
@@ -357,6 +403,9 @@ class UnholyCompose(Compose):
 
         opts.setdefault('cwd', self.WORKSPACE_MOUNTPOINT)
         opts.setdefault('check', True)
+        #opts.setdefault('stdout', subprocess.PIPE)
+        #opts.setdefault('stderr', subprocess.STDOUT)
+        #opts.setdefault('encoding', 'utf-8')
 
         return container_run(
             container, self.compose_cmd(*cmd),
@@ -378,7 +427,7 @@ class UnholyCompose(Compose):
         """
         return "/var/run/ssh-agent.sock"
 
-    def ensure_agent_forward(self):
+    def ensure_agent_forward(self, cont=None):
         if 'SSH_AUTH_SOCK' not in os.environ:
             # No agent in the parent environment
             return
@@ -386,16 +435,17 @@ class UnholyCompose(Compose):
         if lf.exists():
             # Forward is already running
             return
-        devenv = self.devenv_get()
+        if cont is None:
+            cont = self.devenv_get()
         cmd = self.docker_cmd(
-            'exec', '-i', devenv,
+            'exec', '-i', cont, '-d',
             'socat',
             'STDIO',
             f'UNIX-LISTEN:{self.agent_path()},unlink-early,forever,fork,max-children=1',
         )
         subprocess.Popen(
             [
-                'socat', f"-L{lf}",
+                'socat', f"-L{lf}", '-d',
                 f"UNIX-CONNECT:{os.environ['SSH_AUTH_SOCK']}",
                 f'EXEC:"{" ".join(cmd)}"'
             ]

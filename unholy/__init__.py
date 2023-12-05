@@ -31,11 +31,14 @@ def format_exceptions(func):
         try:
             return func(*pargs, **kwargs)
         except subprocess.CalledProcessError as exc:
+            click.secho(
+                f"Call to `{' '.join(map(str, exc.cmd))}` failed", fg='red',
+                err=True,
+            )
             if exc.stderr is not None:
                 sys.stderr.write(exc.stderr)
             elif exc.stdout is not None:
                 sys.stderr.write(exc.stdout)
-            print(f"Call to `{' '.join(exc.cmd)}` failed", file=sys.stderr)
             sys.exit(exc.returncode)
     return _
 
@@ -64,7 +67,11 @@ def new(name, repository, branch, remote, context):
             "This project exists locally. Are you sure you want to overwrite it?",
             abort=True,
         )
-    uf = pull_file(repository, 'Unholyfile', branch=branch)
+    try:
+        uf = pull_file(repository, 'Unholyfile', branch=branch)
+    except FileNotFoundError:
+        click.secho("Unholyfile not found in project. Continuing with defaults", fg='red')
+        uf = ""
 
     config = get_config_stack()  # The vanilla projectless stack
 
@@ -97,7 +104,8 @@ def new(name, repository, branch, remote, context):
 
     with composer.bootstrap_spawn() as container:
         do_clone(container, composer.WORKSPACE_MOUNTPOINT, config, branch=branch, remote=remote)
-        composer.compose_run('up', '--detach', container=container)
+        # Compose usually fails because of container problems. We mostly care about networks and volumes.
+        composer.compose_run('up', '--detach', container=container, check=False)
 
     composer.devenv_create(
         get_script_stack(project_name=name, project_config=uf),
@@ -124,7 +132,10 @@ def get_bits(name: str) -> UnholyBits:
     # Start with mostly-complete versions of these objects.
     config = get_config_stack(project_name=name)
     composer = UnholyCompose(name, config)
-    uf = composer.get_unholyfile()
+    try:
+        uf = composer.get_unholyfile()
+    except FileNotFoundError:
+        uf = ""
 
     # Recreate these with more complete info
     config = get_config_stack(project_name=name, project_config=uf)
@@ -149,7 +160,8 @@ def remake(name):
         c.remove(force=True)
 
     with unholy.compose.bootstrap_spawn() as container:
-        unholy.compose.compose_run('up', '--detach', container=container)
+        # Compose usually fails because of container problems. We mostly care about networks and volumes.
+        unholy.compose.compose_run('up', '--detach', container=container, check=False)
 
     unholy.compose.devenv_create(
         get_script_stack(project_name=name, project_config=unholy.unholyfile),

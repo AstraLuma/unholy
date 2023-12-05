@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tarfile
+import time
 
 import click
 import docker
@@ -191,7 +192,7 @@ def container_run(
         # FIXME: Handle if we're handed a text-mode pipe
 
     exec = DockerExec.create(
-        container, cmd=cmd,
+        container, cmd=list(map(str, cmd)),
         stdout=True, stderr=True,
         # stdin=stdin,  privileged=privileged, user=user,
         environment=env, workdir=cwd, tty=tty,
@@ -264,3 +265,10 @@ def inject_and_run(
             container, ['rm', '-rf', f'/{name}'],
             check=True,
         )
+
+
+def wait_for_status(cont: docker.models.containers.Container, status):
+    cont.reload()
+    while cont.status != status:
+        time.sleep(0.1)
+        cont.reload()

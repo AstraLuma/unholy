@@ -50,7 +50,10 @@ def _pull_file_archive(repo: str, branch: str, path: str) -> bytes:
         stdout=subprocess.PIPE, text=False, check=True,
     )
     with tarfile.open(fileobj=io.BytesIO(proc.stdout), mode='r:*') as tf:
-        member = tf.getmember(path)
+        try:
+            member = tf.getmember(path)
+        except KeyError as exc:
+            raise FileNotFoundError(f"File {path} not in repo") from exc
         with tf.extractfile(member) as fobj:
             return fobj.read()
 
@@ -74,10 +77,13 @@ def _pull_file_github(repo: str, branch: str, path: str) -> bytes:
             + (['-b', branch] if branch != 'HEAD' else []),
             check=True,
         )
-        subprocess.run(
-            ['git', 'restore', '--staged', path],
-            check=True, cwd=td,
-        )
+        try:
+            subprocess.run(
+                ['git', 'restore', '--staged', path],
+                check=True, cwd=td,
+            )
+        except subprocess.SubprocessError as exc:
+           raise FileNotFoundError(f"File {path} not found in repo") from exc
         subprocess.run(
             ['git', 'checkout', path],
             check=True, cwd=td,
