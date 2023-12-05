@@ -434,7 +434,7 @@ class UnholyCompose(Compose):
         if cont is None:
             cont = self.devenv_get()
         cmd = self.docker_cmd(
-            'exec', '-i', cont,
+            'exec', '--interactive', cont,
             'socat',
             'STDIO',
             f'UNIX-LISTEN:{self.agent_path()},unlink-early,forever,fork,max-children=1',
