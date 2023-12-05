@@ -285,6 +285,7 @@ class UnholyCompose(Compose):
         cont = self.container_create(
             self.DEVENV_SERVICE, img,
             command=['sleep', 'infinity'],
+            hostname=self.name,  # FIXME: read from config
             init=True,
             mounts=[
                 mount(self.WORKSPACE_MOUNTPOINT, proj),
