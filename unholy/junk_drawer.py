@@ -1,6 +1,7 @@
 import io
 import tarfile
 
+
 def tarfile_add(tf: tarfile.TarFile, name: str, contents: str | bytes, **props):
     """
     Utility to add a file to a tarfile

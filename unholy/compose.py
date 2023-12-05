@@ -256,12 +256,11 @@ class UnholyCompose(Compose):
                     st = file.stat()
                     tarfile_add(
                         tf, str(file.relative_to(real_home)), file.read_bytes(),
-                        mode = st.st_mode,
+                        mode=st.st_mode,
                     )
 
         buf.seek(0)
         cont.put_archive(cont_home, buf)
-
 
     @contextmanager
     def bootstrap_spawn(self, accessories=True) -> docker.models.containers.Container:
@@ -403,9 +402,6 @@ class UnholyCompose(Compose):
 
         opts.setdefault('cwd', self.WORKSPACE_MOUNTPOINT)
         opts.setdefault('check', True)
-        #opts.setdefault('stdout', subprocess.PIPE)
-        #opts.setdefault('stderr', subprocess.STDOUT)
-        #opts.setdefault('encoding', 'utf-8')
 
         return container_run(
             container, self.compose_cmd(*cmd),
@@ -438,14 +434,14 @@ class UnholyCompose(Compose):
         if cont is None:
             cont = self.devenv_get()
         cmd = self.docker_cmd(
-            'exec', '-i', cont, '-d',
+            'exec', '-i', cont,
             'socat',
             'STDIO',
             f'UNIX-LISTEN:{self.agent_path()},unlink-early,forever,fork,max-children=1',
         )
         subprocess.Popen(
             [
-                'socat', f"-L{lf}", '-d',
+                'socat', f"-L{lf}",
                 f"UNIX-CONNECT:{os.environ['SSH_AUTH_SOCK']}",
                 f'EXEC:"{" ".join(cmd)}"'
             ]
@@ -456,5 +452,3 @@ def fix_script(script: str) -> str:
     if not script.startswith('#!'):
         script = '#!/bin/sh\n' + script
     return script
-
-

@@ -83,7 +83,7 @@ def _pull_file_github(repo: str, branch: str, path: str) -> bytes:
                 check=True, cwd=td,
             )
         except subprocess.SubprocessError as exc:
-           raise FileNotFoundError(f"File {path} not found in repo") from exc
+            raise FileNotFoundError(f"File {path} not found in repo") from exc
         subprocess.run(
             ['git', 'checkout', path],
             check=True, cwd=td,
