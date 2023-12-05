@@ -10,6 +10,7 @@ You can call it what you'd like, but I'm going to call this union `unholy`.
 - Unholy itself (I suggest using [pipx](https://pypa.github.io/pipx/))
 - Git
 - The Docker CLI
+- socat
 - [Neovide](https://neovide.dev/)
 
 ## Usage
