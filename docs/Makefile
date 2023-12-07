@@ -14,6 +14,12 @@ help:
 
 .PHONY: help Makefile serv
 
+../poetry.lock:
+	true
+
+requirements.txt: ../poetry.lock
+	poetry export --with=dev | tee "$@"
+
 serv:
 	sphinx-autobuild --open-browser --port 0 "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 
