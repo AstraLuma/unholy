@@ -201,7 +201,7 @@ class UnholyCompose(Compose):
     # * Bootstrap container--Ephemeral container used for some operations when
     #   a devenv might not be available
 
-    BOOTSTRAP_IMAGE = 'ghcr.io/astraluma/unholy/bootstrap:nightly'
+    BOOTSTRAP_IMAGE = 'ghcr.io/astraluma/unholy/bootstrap:trunk'
     WORKSPACE_MOUNTPOINT = '/workspace'
     DEVENV_SERVICE = 'devenv'
 
@@ -429,6 +429,10 @@ class UnholyCompose(Compose):
             return
         lf = self._ssh_lockfile()
         if lf.exists():
+            # FIXME: Actually check that socat is still running
+            # (The lock file contains the PID, so we can look up
+            # if the process still exists and if it looks like
+            # one of ours)
             # Forward is already running
             return
         if cont is None:
