@@ -15,7 +15,7 @@ Additionally, you need the following software installed locally:
 * Git
 * socat
 * Docker CLI
-* Neovide_.
+* Neovide_
 * Python (3.10 or later)
 
 Note that while you do not need a local Docker daemon running, your Docker

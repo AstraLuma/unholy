@@ -13,7 +13,7 @@ What?
 Unholy is a tool to create and manage Docker-based development
 environments--it's a dev container implementation.
 
-Unholy performs all operations over the Docker CLI; no side-band channels or open
+Unholy performs all operations over the Docker API; no side-band channels or open
 ports are used. Both local and remote daemons are supported.
 
 * Uses Neovim and Neovide as the editing UI
