@@ -26,7 +26,7 @@ set -e
 apt-get update
 
 # Install some basics
-apt-get install -y sudo git curl gpg socat
+apt-get install -y sudo git curl gpg socat man less
 
 # Add Docker's official GPG key:
 apt-get install -y ca-certificates curl gnupg rsync
