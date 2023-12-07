@@ -16,6 +16,7 @@ author = 'AstraLuma'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
+    'sphinx_click',
 ]
 
 templates_path = ['_templates']

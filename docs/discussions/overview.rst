@@ -51,3 +51,10 @@ SSH agent forwarding is two copies of socat chained together with Docker.
 
 If you find this horrifying, first I'm sorry I inflicted this knowledge on you,
 and second the name of the tool is Unholy.
+
+Bootstrap
+=========
+
+Occasionally, when the development environment is unavailable, Unholy will spawn
+a bootstrap container and use that for operations. It should be deleted
+automatically when Unholy is done with it.
