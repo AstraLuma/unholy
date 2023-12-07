@@ -26,4 +26,4 @@ jobs:
           poetry install --with=dev
       - name: Lint with flake8
         run: |
-          poetry run flake8 . --count --show-source --statistics
+          poetry run flake8 unholy --count --show-source --statistics
