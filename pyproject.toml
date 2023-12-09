@@ -3,7 +3,7 @@ name = "unholy"
 
 [tool.poetry]
 name = "unholy"
-version = "0.1.0"
+version = "0.2.1"
 description = "The melding of docker compose and neovim"
 authors = ["Jamie Bliss <jamie@ivyleav.es>"]
 license = "GPL-3"
